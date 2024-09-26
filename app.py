@@ -9,13 +9,6 @@ from collections import defaultdict, deque
 import math
 import cv2
 def crop_background(pil_image):
-    """
-    Crop the unnecessary white background from a PIL image and return the cropped image.
-    
-    :param pil_image: A PIL Image object.
-    :return: A cropped PIL Image object.
-    """
-    # Convert PIL image to a NumPy array (OpenCV format)
     image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
 
     # Convert to grayscale
@@ -41,7 +34,6 @@ def crop_background(pil_image):
         cropped_pil_image = Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))
         return cropped_pil_image
     else:
-        print("No non-white areas found in the image.")
         return pil_image  # Return the original image if completely white
 class Graph:
     def __init__(self):
@@ -106,8 +98,6 @@ class Graph:
         """Automatically add hydrogen atoms to carbon atoms to ensure each carbon has four bonds."""
         hydrogens = []  # To keep track of hydrogen nodes added
         count_hydrogen = len(self.nodes)+1
-        #print(count_hydrogen)
-        #print(self.find_all_cycles())
         for node_id, value in self.nodes:
             if value == "C":
                 # Count existing bonds
@@ -235,7 +225,6 @@ def all_chain_all(graph, start_node):
             all_chain([atom], graph, [])
     else:
         all_chain([start_node], graph, [])
-    #print("JI")
     return [list(x) for x in zip(all_chain_output, sub_chain_output)]
 count_hydrogen = 0
 def add_hydrogens(graph):
@@ -263,7 +252,6 @@ def fruchterman_reingold(graph, iterations=100, width=800, height=600, k=None):
     """
     Fruchterman-Reingold force-directed graph drawing algorithm.
     :param graph: Input graph with nodes and edges.
-    :param iterations: Number of iterations to run the algorithm.
     :param width: Width of the output space.
     :param height: Height of the output space.
     :param k: Optimal distance between nodes (optional, defaults to sqrt(area/n)).
@@ -466,19 +454,13 @@ def process(graph, depth=0, suffix=0, start_node=None):
     
     if graph.find_all_cycles() != []:
         cycle = graph.find_all_cycles()
-        #print(cycle)
         for i in range(len(cycle)):
             new_cycle = [cycle[(i+j)%len(cycle)] for j in range(len(cycle))]
-            #print(new_cycle)
             subchain = []
             for index, node in enumerate(new_cycle):
                 subchain += [index+1]*(len(neighbor(graph, node))-2)
-            #print(subchain)
             all_chain_output.append(double_bond(graph, [new_cycle, subchain])+[1])
                 
-    #for item in all_chain_output:
-    #    print(item)
-    
     max_double = max([len(x[2])+len(x[3]) for x in all_chain_output])
     if max_double > 0:
         all_chain_output = [x for x in all_chain_output if max_double == len(x[2])+len(x[3])]
@@ -495,7 +477,6 @@ def process(graph, depth=0, suffix=0, start_node=None):
     all_chain_output = sorted(all_chain_output, key=lambda x: sum(x[2]))[0]
 
     sub_chain = []
-    #print(all_chain_output)
     for i in list(set(all_chain_output[1])):
         count = all_chain_output[1].count(i)
         sel_edge = []
@@ -784,12 +765,7 @@ def name2compound(graph, name_eq, position):
             graph.edges += graph2.edges
             graph.add_edge(position+int(child.children[0].name), max_node+1)
     return graph
-"""
-x = process(graph)
-for item in name:
-    x = x.replace("("+item+"yl)", item+"yl")
-print(x)
-"""
+  
 def add_base(graph, num, position, cyclic=False):
     max_node = 0
     if position != 0:
@@ -812,7 +788,6 @@ def post(x):
     return x
 final = []
 
-# fancy print
 def string_equation_helper(equation_tree):
     if equation_tree.children == []:
         return equation_tree.name # leaf node
@@ -826,7 +801,6 @@ def string_equation_helper(equation_tree):
     s = s[:-1] + ")"
     return s
 
-# fancy print main function
 def string_equation(eq): 
     eq = eq.replace("v_0", "x")
     eq = eq.replace("v_1", "y")
