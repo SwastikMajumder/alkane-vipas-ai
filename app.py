@@ -802,4 +802,4 @@ if st.button("Generate Structure"):
 
     image = graph.draw_graph()
 
-    st.image(image, caption="Chemical Structure", use_column_width=True)
+    st.image(image, caption="Chemical Structure", use_column_width=False)
