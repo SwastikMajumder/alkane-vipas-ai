@@ -8,37 +8,64 @@ import random
 from collections import defaultdict, deque
 import math
 import cv2
+import secrets
+
+class SC:
+    @staticmethod
+    def choice(sequence):
+        """Return a random element from the non-empty sequence."""
+        if not sequence:
+            raise ValueError("Cannot choose from an empty sequence.")
+        index = secrets.randbelow(len(sequence))
+        return sequence[index]
+
+    @staticmethod
+    def shuffle(sequence):
+        """Shuffle the sequence in place."""
+        if not sequence:
+            return  # Return the empty sequence as is
+        shuffled = sequence[:]
+        n = len(shuffled)
+        for i in range(n):
+            j = secrets.randbelow(n - i) + i  # Pick a random index to swap with
+            shuffled[i], shuffled[j] = shuffled[j], shuffled[i]  # Swap the elements
+        return shuffled
+
+    @staticmethod
+    def randint(a, b):
+        """Return a random integer N such that a <= N <= b."""
+        return a + secrets.randbelow(b - a + 1)
+
+    @staticmethod
+    def uniform(a, b):
+        """Return a random float N such that a <= N < b."""
+        return a + (b - a) * secrets.randbelow(1000000) / 1000000.0
+      
 def crop_background(pil_image):
     image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
 
-    # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Apply a threshold to get a binary image
     _, binary = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
 
-    # Invert the binary image to focus on non-white areas
     binary_inv = cv2.bitwise_not(binary)
 
-    # Find contours in the binary image
     contours, _ = cv2.findContours(binary_inv, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if contours:
-        # Get the bounding box of the largest contour
+
         x, y, w, h = cv2.boundingRect(contours[0])
 
-        # Crop the image using the bounding box
         cropped_image = image[y:y+h, x:x+w]
-        
-        # Convert back to PIL image
+
         cropped_pil_image = Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))
         return cropped_pil_image
     else:
-        return pil_image  # Return the original image if completely white
+        return pil_image  
 class Graph:
     def __init__(self):
-        self.nodes = []  # Each node is a list [node_id, value]
-        self.edges = []  # Each edge is a list [[node1_id, node2_id], value]
+        self.nodes = []  
+        self.edges = []  
     def add_node(self, node_id, value="C"):
         if node_id not in [node[0] for node in self.nodes]:
             self.nodes.append([node_id, value])
@@ -52,7 +79,7 @@ class Graph:
         for edge, value in self.edges:
             node1_id, node2_id = edge
             adj_list[node1_id].append(node2_id)
-            adj_list[node2_id].append(node1_id)  # Ensure bidirectional edge
+            adj_list[node2_id].append(node1_id)  
         return adj_list
     def degree(self, node_id):
         adj_list = self.build_adjacency_list()
@@ -72,7 +99,7 @@ class Graph:
                     if dfs(neighbor, v):
                         return True
                 elif neighbor != parent and neighbor in recStack:
-                    # Found a cycle
+
                     cycle_start_index = recStack.index(neighbor)
                     cycle = recStack[cycle_start_index:] + [neighbor]
                     all_cycles.append(cycle)
@@ -84,27 +111,25 @@ class Graph:
             if node_id not in visited:
                 dfs(node_id, None)
 
-        # Determine return value based on number of cycles found
         if len(all_cycles) == 0:
-            return []  # No cycles found
+            return []  
         elif len(all_cycles) == 1:
-            return list(set(all_cycles[0]))  # Exactly one cycle found
+            return list(set(all_cycles[0]))  
         else:
-            return None  # More than one cycle found
+            return None  
     def get_edges(self, node_id):
         """Returns the edges connected to a specific node_id."""
         return [edge for edge in self.edges if node_id in edge[0]]
     def add_hydrogens(self):
         """Automatically add hydrogen atoms to carbon atoms to ensure each carbon has four bonds."""
-        hydrogens = []  # To keep track of hydrogen nodes added
+        hydrogens = []  
         count_hydrogen = len(self.nodes)+1
         for node_id, value in self.nodes:
             if value == "C":
-                # Count existing bonds
+
                 existing_bonds = sum([edge[1] for edge in self.get_edges(node_id)])
                 needed_hydrogens = 4 - existing_bonds
 
-                # Add hydrogens as needed
                 for _ in range(needed_hydrogens):
                     hydrogen_id = count_hydrogen
                     count_hydrogen += 1
@@ -114,75 +139,64 @@ class Graph:
 
         return hydrogens
     def fruchterman_reingold(self, iterations=1000, width=400, height=400):
-      # Initialize node positions randomly
-      positions = {node[0]: (random.uniform(0, width), random.uniform(0, height)) for node in self.nodes}
-      
+
+      positions = {node[0]: (SC.uniform(0, width), SC.uniform(0, height)) for node in self.nodes}
+
       for _ in range(iterations):
           forces = {node_id: [0, 0] for node_id in positions.keys()}
 
-          # Repulsive forces
           for node1 in positions:
               for node2 in positions:
                   if node1 != node2:
                       dx = positions[node1][0] - positions[node2][0]
                       dy = positions[node1][1] - positions[node2][1]
-                      distance = math.sqrt(dx ** 2 + dy ** 2) + 1e-10  # Prevent division by zero
-                      repulsion_force = 1000 / distance**2  # Repulsive force calculation
+                      distance = math.sqrt(dx ** 2 + dy ** 2) + 1e-10  
+                      repulsion_force = 1000 / distance**2  
                       forces[node1][0] += dx / distance * repulsion_force
                       forces[node1][1] += dy / distance * repulsion_force
 
-          # Attractive forces
           for (node1_id, node2_id), value in self.edges:
               if node1_id in positions and node2_id in positions:
                   dx = positions[node1_id][0] - positions[node2_id][0]
                   dy = positions[node1_id][1] - positions[node2_id][1]
                   distance = math.sqrt(dx ** 2 + dy ** 2) + 1e-10
-                  attraction_force = distance ** 2 / 100  # Attractive force calculation
+                  attraction_force = distance ** 2 / 100  
                   forces[node1_id][0] -= dx / distance * attraction_force
                   forces[node1_id][1] -= dy / distance * attraction_force
                   forces[node2_id][0] += dx / distance * attraction_force
                   forces[node2_id][1] += dy / distance * attraction_force
 
-          # Update positions
           for node_id in positions:
               dx, dy = forces[node_id]
               positions[node_id] = (positions[node_id][0] + dx * 0.1, positions[node_id][1] + dy * 0.1)
-              
-              # Keep nodes within bounds
+
               positions[node_id] = (
                   max(20, min(positions[node_id][0], width - 20)),
                   max(20, min(positions[node_id][1], height - 20))
               )
-      
+
       return positions
 
     def draw_graph(self, width=500, height=500):
-      # Create an image with a white background
+
       image = Image.new('RGB', (width, height), 'white')
       draw = ImageDraw.Draw(image)
 
-      # Calculate positions using Fruchterman-Reingold algorithm
       positions = self.fruchterman_reingold(width=width, height=height)
 
-      # Draw nodes
       for node_id, value in self.nodes:
           x, y = positions[node_id]
           draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill='lightblue', outline='black')
-          #draw.text((x - 10, y - 10), str(node_id), fill='black')  # Node ID
 
-      # Draw edges
       for (node1_id, node2_id), value in self.edges:
           if node1_id in positions and node2_id in positions:
               x1, y1 = positions[node1_id]
               x2, y2 = positions[node2_id]
-              draw.line([x1, y1, x2, y2], fill='black', width=2)  # Draw the edge
+              draw.line([x1, y1, x2, y2], fill='black', width=2)  
 
-              # Midpoint for edge label
               mid_x = (x1 + x2) / 2
               mid_y = (y1 + y2) / 2
-              #draw.text((mid_x, mid_y), str(value), fill='red')  # Edge weight
 
-      # Save the image
       image = crop_background(image)
       return image
 
@@ -190,13 +204,12 @@ def terminal_carbon(graph):
     output = []
     for node in graph.nodes:
         node_id = node[0]
-        # Count the number of edges connected to this node
+
         adjacent_count = sum(1 for edge in graph.edges if node_id in edge[0])
-        
-        # A terminal node has exactly one connection
+
         if adjacent_count == 1:
             output.append(node_id)
-    
+
     return output
 
 def all_chain_all(graph, start_node):
@@ -229,14 +242,14 @@ def all_chain_all(graph, start_node):
 count_hydrogen = 0
 def add_hydrogens(graph):
     global count_hydrogen
-    hydrogens = []  # To keep track of hydrogen nodes added
+    hydrogens = []  
     for node in graph.nodes:
         node_id, value = node
         if value == "C":
-            # Count existing bonds
+
             existing_bonds = sum([edge[1] for edge in graph.edges if node_id in edge[0]])
             needed_hydrogens = 4 - existing_bonds
-            
+
             for _ in range(needed_hydrogens):
                 hydrogen_id = count_hydrogen
                 count_hydrogen += 1
@@ -257,29 +270,24 @@ def fruchterman_reingold(graph, iterations=100, width=800, height=600, k=None):
     :param k: Optimal distance between nodes (optional, defaults to sqrt(area/n)).
     :return: Dictionary of node positions.
     """
-    # Number of nodes
+
     num_nodes = len(graph.nodes)
-    
-    # Initialize random positions for the nodes
-    positions = {node: np.random.rand(2) * [width, height] for node in graph.nodes}
-    
-    # If k is not provided, calculate the optimal distance between nodes
+
+    positions = {node: np.SC.rand(2) * [width, height] for node in graph.nodes}
+
     if k is None:
         area = width * height
         k = np.sqrt(area / num_nodes)
-    
-    # Forces
+
     def repulsive_force(d, k):
         return k**2 / d
-    
+
     def attractive_force(d, k):
         return d**2 / k
-    
-    # Main algorithm loop
+
     for _ in range(iterations):
         displacements = {node: np.zeros(2) for node in graph.nodes}
-        
-        # Calculate repulsive forces
+
         for i, node_i in enumerate(graph.nodes):
             for j, node_j in enumerate(graph.nodes):
                 if i != j:
@@ -288,8 +296,7 @@ def fruchterman_reingold(graph, iterations=100, width=800, height=600, k=None):
                     if dist > 0:
                         repulsive = repulsive_force(dist, k)
                         displacements[node_i] += (delta / dist) * repulsive
-        
-        # Calculate attractive forces along edges
+
         for edge in graph.edges:
             node1, node2 = edge
             delta = positions[node1] - positions[node2]
@@ -298,14 +305,12 @@ def fruchterman_reingold(graph, iterations=100, width=800, height=600, k=None):
                 attractive = attractive_force(dist, k)
                 displacements[node1] -= (delta / dist) * attractive
                 displacements[node2] += (delta / dist) * attractive
-        
-        # Update positions based on displacements
+
         for node in graph.nodes:
             positions[node] += displacements[node]
-            
-            # Ensure nodes stay within bounds
+
             positions[node] = np.clip(positions[node], 0, [width, height])
-    
+
     return positions
 
 def draw_graph(graph, positions):
@@ -315,46 +320,37 @@ def draw_graph(graph, positions):
     :param positions: Dictionary of node positions.
     """
     plt.figure(figsize=(10, 8))
-    
-    # Draw edges
+
     for edge in graph.edges:
         node1, node2 = edge
         pos1 = positions[node1]
         pos2 = positions[node2]
         plt.plot([pos1[0], pos2[0]], [pos1[1], pos2[1]], 'k-', lw=2, color="gray")
-    
-    # Draw nodes
+
     for node, pos in positions.items():
         plt.scatter(pos[0], pos[1], s=200, c='lightblue', edgecolors='black', zorder=2)
         plt.text(pos[0], pos[1], str(node), fontsize=12, ha='center', va='center', zorder=3)
-    
+
     plt.title("Graph Visualization (Fruchterman-Reingold Algorithm)")
     plt.xlim(0, 800)
     plt.ylim(0, 600)
     plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
 
-        
-
-
-
-
 def explorable_subgraph(graph, start_node, forbidden_nodes):
-    # Create a new Graph instance for the explorable subgraph
+
     subgraph = Graph()
-    
-    # Perform BFS to find the explorable subgraph
+
     if start_node in [node[0] for node in graph.nodes]:
         visited = set()
         queue = [start_node]
-        
+
         while queue:
             node = queue.pop(0)
             if node not in visited and node not in forbidden_nodes:
                 visited.add(node)
                 subgraph.add_node(node, value=[n[1] for n in graph.nodes if n[0] == node][0])
-                
-                # Add edges to the subgraph if they connect to valid nodes
+
                 for edge in graph.edges:
                     (n1, n2), value = edge
                     if n1 == node and n2 not in visited and n2 not in forbidden_nodes:
@@ -367,10 +363,9 @@ def explorable_subgraph(graph, start_node, forbidden_nodes):
                         if n1 not in forbidden_nodes:
                             subgraph.add_node(n1, value=[n[1] for n in graph.nodes if n[0] == n1][0])
                             subgraph.add_edge(n1, n2, value)
-    
+
     return subgraph
 
-# Create the graph
 graph = Graph()
 
 graph.add_node(1, "C")
@@ -399,8 +394,6 @@ name_2 = [
     "hexaconta", "heptaconta", "octaconta", "nonaconta"
 ]
 
-
-
 def neighbor(graph, node):
     output = []
     for item in graph.edges:
@@ -409,7 +402,6 @@ def neighbor(graph, node):
         elif node == item[0][1]:
             output.append(item[0][0])
     return list(set(output))
-            
 
 def process(graph, depth=0, suffix=0, start_node=None):
     global name
@@ -418,9 +410,9 @@ def process(graph, depth=0, suffix=0, start_node=None):
     global name_2
     if graph.nodes == []:
         return
-    
+
     all_chain_output = all_chain_all(graph, start_node)
-    
+
     def double_bond(graph, chain):
         double = []
         triple = []
@@ -443,15 +435,14 @@ def process(graph, depth=0, suffix=0, start_node=None):
                         break
             i = i + 1
         return chain + [double] + [triple]
-    
+
     all_chain_output = [double_bond(graph, x) for x in all_chain_output]
-    
-    
+
     for i in range(len(all_chain_output)):
         all_chain_output[i] += [0]
 
     all_chain_new = []
-    
+
     if graph.find_all_cycles() != []:
         cycle = graph.find_all_cycles()
         for i in range(len(cycle)):
@@ -460,7 +451,7 @@ def process(graph, depth=0, suffix=0, start_node=None):
             for index, node in enumerate(new_cycle):
                 subchain += [index+1]*(len(neighbor(graph, node))-2)
             all_chain_output.append(double_bond(graph, [new_cycle, subchain])+[1])
-                
+
     max_double = max([len(x[2])+len(x[3]) for x in all_chain_output])
     if max_double > 0:
         all_chain_output = [x for x in all_chain_output if max_double == len(x[2])+len(x[3])]
@@ -469,9 +460,9 @@ def process(graph, depth=0, suffix=0, start_node=None):
 
     max_cycle = max([x[4] for x in all_chain_output])
     all_chain_output = [x for x in all_chain_output if max_cycle == x[4]]
-    
+
     max_len = max([len(x[0]) for x in all_chain_output])
-    
+
     all_chain_output = [x for x in all_chain_output if max_len == len(x[0])]
     all_chain_output = sorted(all_chain_output, key=lambda x: sum(x[1]))
     all_chain_output = sorted(all_chain_output, key=lambda x: sum(x[2]))[0]
@@ -486,10 +477,10 @@ def process(graph, depth=0, suffix=0, start_node=None):
             elif all_chain_output[0][i-1] == item[1]:
                 sel_edge.append(item[0])
         sel_edge = list(set(sel_edge) - set(all_chain_output[0]))
-        
+
         for j in range(count):
             forbidden = list(set(all_chain_output[0] + sel_edge) - set([sel_edge[j]]))
-                
+
             sub_chain.append([str(i), process(explorable_subgraph(graph, sel_edge[j], forbidden), depth+1, i, sel_edge[j])])
     output = []
     sub_chain_type = {}
@@ -529,23 +520,20 @@ def process(graph, depth=0, suffix=0, start_node=None):
 
 def is_connected(edge_list):
     if not edge_list:
-        return True  # If there are no edges, consider the graph connected only if there are no nodes or one node.
+        return True  
 
     graph = defaultdict(list)
     nodes = set()
 
-    # Build the graph
     for u, v in edge_list:
         graph[u].append(v)
         graph[v].append(u)
         nodes.add(u)
         nodes.add(v)
 
-    # Pick an arbitrary start node
     start_node = next(iter(nodes))
     visited = set()
 
-    # BFS to check connectivity
     def bfs(node):
         queue = deque([node])
         visited.add(node)
@@ -559,77 +547,69 @@ def is_connected(edge_list):
 
     bfs(start_node)
 
-    # If we visited all nodes, the graph is connected
     return len(visited) == len(nodes)
 
 def is_tree_with_max_4_children(edge_list):
     if not edge_list:
-        return False  # An empty edge list cannot represent a tree.
-    
+        return False  
+
     graph = defaultdict(list)
     nodes = set()
-    
+
     for u, v in edge_list:
         graph[u].append(v)
         graph[v].append(u)
         nodes.add(u)
         nodes.add(v)
-    
-    # Check connectivity
+
     if not is_connected(edge_list):
         return False
-    
-    # Check the number of edges (N-1 edges for a tree with N nodes)
+
     if len(nodes) != 6:
         return False
-    
-    # Check for maximum 4 children per node
+
     for node in graph:
         if len(graph[node]) > 4:
             return False
 def generate_random_graph(n, cyclic=True):
     graph = Graph()
-    
-    # Add nodes to the graph
+
     for i in range(n):
         graph.add_node(i)
-    
-    # Prim's algorithm to generate a random spanning tree
+
     connected_nodes = set()
-    
-    # Start with the first node
-    current_node = random.randint(0, n - 1)
+
+    current_node = SC.randint(0, n - 1)
     connected_nodes.add(current_node)
-    
+
     while len(connected_nodes) < n:
         possible_edges = []
         for node in connected_nodes:
-            if graph.degree(node) < 4:  # Node has less than 4 neighbors
+            if graph.degree(node) < 4:  
                 for neighbor in range(n):
                     if (neighbor not in connected_nodes and
                             not graph.edge_exists(node, neighbor) and
                             graph.degree(neighbor) < 4):
                         possible_edges.append((node, neighbor))
-        
+
         if possible_edges:
-            edge = random.choice(possible_edges)
+            edge = SC.choice(possible_edges)
             graph.add_edge(edge[0], edge[1])
             connected_nodes.add(edge[1])
     if cyclic:
-      # Optionally add one edge to create exactly one cycle, if needed
+
       potential_edges = list(itertools.combinations(range(n), 2))
-      random.shuffle(potential_edges)
-      
+      SC.shuffle(potential_edges)
+
       for edge in potential_edges:
           if (not graph.edge_exists(edge[0], edge[1]) and
                   graph.degree(edge[0]) < 4 and
                   graph.degree(edge[1]) < 4):
               graph.add_edge(edge[0], edge[1])
-              # Stop after adding one cycle
-              break
-    
-    return graph
 
+              break
+
+    return graph
 
 def edge_convert(num, lst):
     graph = Graph()
@@ -639,21 +619,19 @@ def edge_convert(num, lst):
         graph.add_edge(lst[i][0], lst[i][1])
     return graph
 
-# Basic data structure, which can nest to represent math equations
 class TreeNode:
     def __init__(self, name, children=None):
         self.name = name
         self.children = children or []
 
-# convert string representation into tree
 def tree_form(tabbed_strings):
     lines = tabbed_strings.split("\n")
-    root = TreeNode("Root") # add a dummy node
+    root = TreeNode("Root") 
     current_level_nodes = {0: root}
     stack = [root]
     for line in lines:
-        level = line.count(' ') # count the spaces, which is crucial information in a string representation
-        node_name = line.strip() # remove spaces, when putting it in the tree form
+        level = line.count(' ') 
+        node_name = line.strip() 
         node = TreeNode(node_name)
         while len(stack) > level + 1:
             stack.pop()
@@ -661,14 +639,13 @@ def tree_form(tabbed_strings):
         parent_node.children.append(node)
         current_level_nodes[level] = node
         stack.append(node)
-    return root.children[0] # remove dummy node
+    return root.children[0] 
 
-# convert tree into string representation
 def str_form(node):
     def recursive_str(node, depth=0):
-        result = "{}{}".format(' ' * depth, node.name) # spacings
+        result = "{}{}".format(' ' * depth, node.name) 
         for child in node.children:
-            result += "\n" + recursive_str(child, depth + 1) # one node in one line
+            result += "\n" + recursive_str(child, depth + 1) 
         return result
     return recursive_str(node)
 
@@ -693,8 +670,8 @@ def remove_past(equation):
 def break_equation(equation):
     sub_equation_list = [equation]
     equation = equation
-    for child in equation.children: # breaking equation by accessing children
-        sub_equation_list += break_equation(child) # collect broken equations
+    for child in equation.children: 
+        sub_equation_list += break_equation(child) 
     return sub_equation_list
 
 def multiple(equation):
@@ -707,11 +684,10 @@ def multiple(equation):
         if item.name == "compound" and len(item.children) > 2:
             equation = replace(equation, item, split(item))
     return remove_past(equation)
-    #return equation
 
 def pre(compound):
     global name_2
-    
+
     compound = compound.replace("ane", "")
 
     for item in name:
@@ -719,16 +695,15 @@ def pre(compound):
             return "0*"+compound
         elif "cyclo"+item == compound:
             return "0*"+compound
-    
+
     for i in range(10,-1,-1):
         compound = compound.replace(str(i)+"-", str(i)+"*")
-        
+
     for item in name_2:
         compound = compound.replace(item, "")
-        
+
     compound = compound.replace("yl", ";")
-    
-    #compound = compound.replace("cyclo", "cyclo+")
+
     compound = compound.replace(";)", ")")
     compound = compound.replace(";;", ";")
     compound = compound.replace(")cyclo", ");cyclo")
@@ -747,7 +722,7 @@ def name2compound(graph, name_eq, position):
     for child in name_eq.children:
         if int(child.children[0].name) == 0:
             graph = add_base(copy.deepcopy(graph), name.index(child.children[1].name.replace("cyclo", ""))+1, position, child.children[1].name.replace("cyclo", "") != child.children[1].name)
-    #draw_graph(graph)
+
     for child in name_eq.children:
         if int(child.children[0].name) == 0:
             continue
@@ -765,12 +740,12 @@ def name2compound(graph, name_eq, position):
             graph.edges += graph2.edges
             graph.add_edge(position+int(child.children[0].name), max_node+1)
     return graph
-  
+
 def add_base(graph, num, position, cyclic=False):
     max_node = 0
     if position != 0:
         max_node = sorted(graph.nodes, key=lambda x: -x[0])[0][0]
-    
+
     for i in range(num):
         graph.add_node(max_node+i+1)
         if i != 0:
@@ -780,7 +755,7 @@ def add_base(graph, num, position, cyclic=False):
     if position != 0:
         graph.add_edge(position, max_node+1)
     return graph
-  
+
 def post(x):
     global name
     for item in name:
@@ -790,11 +765,11 @@ final = []
 
 def string_equation_helper(equation_tree):
     if equation_tree.children == []:
-        return equation_tree.name # leaf node
-    s = "(" # bracket
+        return equation_tree.name 
+    s = "(" 
     if len(equation_tree.children) == 1:
         s = equation_tree.name + s
-    #sign = {"f_add": "+", "f_mul": "*", "f_pow": "^", "f_div": "/", "f_int": ",", "f_sub": "-", "f_dif": "?", "f_sin": "?", "f_cos": "?", "f_tan": "?", "f_eq": "=", "f_sqt": "?"} # operation symbols
+
     sign = {"compound": "-", "segment": "?"}
     for child in equation_tree.children:
         s+= string_equation_helper(copy.deepcopy(child)) + sign[equation_tree.name]
@@ -806,34 +781,25 @@ def string_equation(eq):
     eq = eq.replace("v_1", "y")
     eq = eq.replace("v_2", "z")
     eq = eq.replace("d_", "")
-    
+
     return string_equation_helper(tree_form(eq))
 
 st.title("Random Alkane Hydrocarbon Chemical Structure Generator")
 
-# User input for number of carbons and cyclic option
 num_carbons = st.slider("Select number of Carbon atoms:", 1, 40, 10)
 is_cyclic = st.checkbox("Should the compound be cyclic?", value=False)
 
-# Generate the random graph and process it
 if st.button("Generate Structure"):
-    # Generate random graph
+
     graph = generate_random_graph(num_carbons, is_cyclic)
 
-    # Process the graph to get the IUPAC name
     iupac_name = process(graph)
-    
-    # Replace specific names in the IUPAC name if needed (as per your provided code)
-    # Assuming `name` is a predefined list of items to replace
-    name = []  # Populate this list with appropriate items as needed
+
     for item in name:
         iupac_name = iupac_name.replace(f"({item}yl)", f"{item}yl")
 
-    # Display the IUPAC name
     st.write("IUPAC Name:", iupac_name)
 
-    # Draw the graph (mock function for generating an image)
     image = graph.draw_graph()
 
-    # Display the generated image
     st.image(image, caption="Chemical Structure", use_column_width=True)
